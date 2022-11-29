@@ -1,0 +1,52 @@
+on:
+  push:
+    branches: main
+
+name: Build and Deploy website
+
+jobs:
+  build:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: macOS-latest, r: 'release'}
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      - name: Install pandoc
+        run: |
+          brew install pandoc
+
+      - name: Install packages
+        run: |
+          R -e 'install.packages("blogdown")'
+
+      - name: Install hugo
+        run: |
+          R -e 'blogdown::install_hugo()'
+
+      - name: Build site
+        run: |
+          R -e 'blogdown::build_site(TRUE)'
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./public
